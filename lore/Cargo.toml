@@ -1,10 +1,9 @@
 [package]
-name = "tester"
+name = "lore"
 version = "0.1.0"
-authors = ["sour"]
+authors = ["soerxpso <soerxpso@gmail.com>"]
 edition = "2018"
 
 [dependencies]
 lore_render = { path = "../lore_render"}
-second_day = { path = "../second_day"}
 cgmath = "0.17.0"

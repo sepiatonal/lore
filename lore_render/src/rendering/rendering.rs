@@ -12,7 +12,7 @@ use slab::Slab;
 
 use gl::types::*;
 
-use cgmath::{Matrix4, Vector3, Deg};
+use cgmath::{Matrix4, Deg};
 use cgmath::prelude::*;
 
 use image::{DynamicImage, GenericImageView};
@@ -20,20 +20,7 @@ use image::{DynamicImage, GenericImageView};
 use crate::mesh::{Mesh, Vertex};
 use crate::image_loading::default_texture;
 
-pub(crate) enum DataUpdate {
-    MeshCreate(LoadedMeshTicket, Mesh, ShaderProgramTicket),
-    RenderedObjectCreate(RenderedObjectTicket, LoadedMeshTicket),
-    PositionSet(RenderedObjectTicket, Vector3<f32>),
-    MatrixSet(RenderedObjectTicket, Matrix4<f32>),
-    VertShaderCreate(ShaderTicket, &'static str),
-    FragShaderCreate(ShaderTicket, &'static str),
-    // program ticket (empty, to be filled), vert shader, Option<frag shader>
-    ShaderProgramCreate(ShaderProgramTicket, ShaderTicket, Option<ShaderTicket>),
-    CameraSet(Matrix4<f32>),
-    TextureCreate(TextureTicket, DynamicImage),
-}
-
-struct LoadedMesh {
+pub(in crate::rendering) struct LoadedMesh {
     vao_id: GLuint,
     vbo_id: GLuint,
     ebo_id: GLuint,
@@ -53,14 +40,14 @@ impl LoadedMesh {
     }
 }
 
-struct RenderedObject {
-    mesh: usize,
-    matrix: Matrix4<f32>,
-    texture: usize,
+pub(in crate::rendering) struct RenderedObject {
+    pub(in crate::rendering) mesh: usize,
+    pub(in crate::rendering) matrix: Matrix4<f32>,
+    pub(in crate::rendering) texture: usize,
 }
 
 impl RenderedObject {
-    fn new(mesh: usize) -> RenderedObject {
+    pub(in crate::rendering) fn new(mesh: usize) -> RenderedObject {
         RenderedObject {
             mesh,
             matrix: Matrix4::identity(),
@@ -72,7 +59,7 @@ impl RenderedObject {
 
 #[derive(Clone)]
 pub struct RenderedObjectTicket {
-    id: Arc<RwLock<Option<usize>>>,
+    pub(in crate::rendering) id: Arc<RwLock<Option<usize>>>,
 }
 
 impl RenderedObjectTicket {
@@ -86,7 +73,7 @@ impl RenderedObjectTicket {
 
 #[derive(Clone)]
 pub struct ShaderTicket {
-    id: Arc<RwLock<Option<usize>>>,
+    pub(in crate::rendering) id: Arc<RwLock<Option<usize>>>,
 }
 
 impl ShaderTicket {
@@ -99,7 +86,7 @@ impl ShaderTicket {
 
 #[derive(Clone)]
 pub struct ShaderProgramTicket {
-    id: Arc<RwLock<Option<usize>>>,
+    pub(in crate::rendering) id: Arc<RwLock<Option<usize>>>,
 }
 
 impl ShaderProgramTicket {
@@ -112,7 +99,7 @@ impl ShaderProgramTicket {
 
 #[derive(Clone)]
 pub struct LoadedMeshTicket {
-    id: Arc<RwLock<Option<usize>>>,
+    pub(in crate::rendering) id: Arc<RwLock<Option<usize>>>,
 }
 
 impl LoadedMeshTicket {
@@ -125,7 +112,7 @@ impl LoadedMeshTicket {
 
 #[derive(Clone)]
 pub struct TextureTicket {
-    id: Arc<RwLock<Option<usize>>>,
+    pub(in crate::rendering) id: Arc<RwLock<Option<usize>>>,
 }
 
 impl TextureTicket {
@@ -137,12 +124,12 @@ impl TextureTicket {
 }
 
 pub(crate) struct DrawingInstance {
-    shaders: Slab<GLuint>,
-    shader_programs: Slab<GLuint>,
-    rendered_objects: Slab<RenderedObject>,
-    loaded_meshes: Slab<LoadedMesh>,
-    loaded_textures: Slab<GLuint>,
-    camera: Matrix4<f32>,
+    pub(in crate::rendering) shaders: Slab<GLuint>,
+    pub(in crate::rendering) shader_programs: Slab<GLuint>,
+    pub(in crate::rendering) rendered_objects: Slab<RenderedObject>,
+    pub(in crate::rendering) loaded_meshes: Slab<LoadedMesh>,
+    pub(in crate::rendering) loaded_textures: Slab<GLuint>,
+    pub(in crate::rendering) camera: Matrix4<f32>,
 }
 
 impl DrawingInstance {
@@ -182,15 +169,15 @@ impl DrawingInstance {
         }
     }
 
-    fn create_vert_shader(&mut self, shader_src: &str) -> usize {
+    pub(in crate::rendering) fn create_vert_shader(&mut self, shader_src: &str) -> usize {
         self.create_shader(shader_src, gl::VERTEX_SHADER)
     }
 
-    fn create_frag_shader(&mut self, shader_src: &str) -> usize {
+    pub(in crate::rendering) fn create_frag_shader(&mut self, shader_src: &str) -> usize {
         self.create_shader(shader_src, gl::FRAGMENT_SHADER)
     }
 
-    fn create_shader_program(&mut self, vert: GLuint, frag: Option<GLuint>) -> usize {
+    pub(in crate::rendering) fn create_shader_program(&mut self, vert: GLuint, frag: Option<GLuint>) -> usize {
         unsafe {
             let program = gl::CreateProgram();
             gl::AttachShader(program, vert);
@@ -217,7 +204,7 @@ impl DrawingInstance {
         }
     }
 
-    fn bind_mesh(&mut self, mesh: &Mesh, shader_program: usize) -> usize {
+    pub(in crate::rendering) fn bind_mesh(&mut self, mesh: &Mesh, shader_program: usize) -> usize {
         let mut vao = 0;
         let mut vbo = 0;
         let mut ebo = 0;
@@ -253,14 +240,14 @@ impl DrawingInstance {
         )
     }
 
-    fn bind_texture(&mut self, texture: &DynamicImage) -> usize {
+    pub(in crate::rendering) fn bind_texture(&mut self, texture: &DynamicImage) -> usize {
         unsafe {
             // Texture wrapping
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::REPEAT as i32);
             gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::REPEAT as i32);
             // Texture filtering
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+            gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
 
             let mut tid = 0;
             gl::GenTextures(1, &mut tid);
@@ -283,88 +270,15 @@ impl DrawingInstance {
         }
     }
 
-    fn update_mesh_matrix(&mut self, rendered_object_id: usize, matrix: Matrix4<f32>) {
+    pub(in crate::rendering) fn update_mesh_matrix(&mut self, rendered_object_id: usize, matrix: Matrix4<f32>) {
         self.rendered_objects[rendered_object_id].matrix = matrix;
     }
 
     // TODO implement delete_shader_program
-    fn delete_shader_program() {}
+    pub(in crate::rendering) fn delete_shader_program() {}
 
     // TODO implement delete_mesh
-    fn delete_mesh() {}
-
-    pub(crate) fn handle_data_update(&mut self, update: DataUpdate) {
-        match update {
-            DataUpdate::MeshCreate(lmt, mesh, sp_t) => {
-                let sp = sp_t.id.read()
-                    .expect("Error reading shader program")
-                    .expect("Error reading shader program");
-                let gl_id = self.bind_mesh(&mesh, sp);
-                *lmt.id.write().expect("Error writing new mesh id") = Some(gl_id);
-            },
-            DataUpdate::RenderedObjectCreate(rot, lmt) => {
-                let lm = lmt.id.read()
-                    .expect("Error reading loaded mesh")
-                    .expect("Error reading loaded mesh");
-                let ro = RenderedObject::new(lm);
-                let ro_id = self.rendered_objects.insert(ro);
-                *rot.id.write().expect("Error writing new rendered object id") = Some(ro_id);
-            },
-            DataUpdate::PositionSet(rot, position) => {
-                let roid = rot.id.read()
-                    .expect("Error getting mesh id for an operation")
-                    .expect("Attempted to update RenderedObject before creating it");
-                let mut matrix = self.rendered_objects[roid].matrix;
-                matrix.w.x = position.x;
-                matrix.w.y = position.y;
-                matrix.w.z = position.z;
-                self.update_mesh_matrix(roid, matrix);
-            },
-            DataUpdate::MatrixSet(rot, matrix) => {
-                let roid = rot.id.read()
-                    .expect("Error getting mesh id for an operation")
-                    .expect("Attempted to update RenderedObject before creating it");
-                self.update_mesh_matrix(roid, matrix);
-            },
-            DataUpdate::VertShaderCreate(st, src) => {
-                let s_id = self.create_vert_shader(src);
-                *st.id.write().expect("Error writing new shader id") = Some(s_id);
-            },
-            DataUpdate::FragShaderCreate(st, src) => {
-                let s_id = self.create_frag_shader(src);
-                *st.id.write().expect("Error writing new shader id") = Some(s_id);
-            },
-            DataUpdate::ShaderProgramCreate(spt, vert_t, frag_t) => {
-                // v_id is the usize representing the index of the vert shader's GL id, in self.shaders
-                let v_id = vert_t.id.read()
-                    .expect("Error reading shader ID")
-                    .expect("Error reading shader ID");
-                // vert is the actual GL id
-                let vert = *self.shaders.get(v_id).expect("Attempted to make shader program using nonexistent shader");
-
-                // essentially the same as the above, but with the option wrapper around frag
-                let frag = match frag_t {
-                    Some(f) => {
-                        let f_id = f.id.read()
-                            .expect("Error reading shader ID")
-                            .expect("Attempted to make shader program using nonexistent shader");
-                        Some(*self.shaders.get(f_id).expect("Attempted to make shader program using nonexistent shader"))
-                    },
-                    None => None,
-                };
-
-                let sp_id = self.create_shader_program(vert, frag);
-                *spt.id.write().expect("Error writing new shader id") = Some(sp_id);
-            },
-            DataUpdate::CameraSet(cam_mat) => {
-                self.camera = cam_mat;
-            },
-            DataUpdate::TextureCreate(tt, img) => {
-                let tt_id = self.bind_texture(&img);
-                *tt.id.write().expect("Error writing new texture id") = Some(tt_id);
-            },
-        }
-    }
+    pub(in crate::rendering) fn delete_mesh() {}
 
     pub(crate) fn setup_rendering(&mut self) {
         unsafe {

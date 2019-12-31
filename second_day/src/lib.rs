@@ -1,2 +1,6 @@
-pub mod noise;
+#![feature(clamp)]
+
 pub mod mesh_gen;
+pub mod noise;
+
+pub use image::*;

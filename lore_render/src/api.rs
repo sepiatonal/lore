@@ -15,7 +15,8 @@ use glutin::{
 use cgmath::{Vector3, Matrix4};
 
 use lore_mesh::{Mesh};
-use crate::rendering::{DrawingInstance, RenderedObjectTicket, DataUpdate, ShaderTicket, ShaderProgramTicket, LoadedMeshTicket, TextureTicket};
+use crate::rendering::rendering::*;
+use crate::rendering::data_updates::*;
 
 // TODO consider a helper function for single-use meshes (that is, meshes that will only have one instance) that combines BindMesh and CreateRenderedObject
 
@@ -26,7 +27,7 @@ pub enum MouseEvent {
 }
 
 pub struct Instance {
-    data_update_channel: Sender<DataUpdate>,
+    data_update_channel: Sender<Box<dyn DataUpdate>>,
     // becomes true when render thread closes
     end_switch: Arc<RwLock<bool>>,
     rendered_object_tickets: Vec<RenderedObjectTicket>,
@@ -66,6 +67,9 @@ impl Instance {
                 .expect("Trouble creating opengl context");
             let windowed_context = unsafe { context_wrapped.make_current() }.expect("Trouble making opengl context current");
 
+            // TODO make this togglable and default to visible
+            windowed_context.window().set_cursor_visible(false);
+
             gl::load_with(|s| windowed_context.get_proc_address(s) as *const _);
 
             drawing_instance.setup_rendering();
@@ -83,14 +87,17 @@ impl Instance {
                     Event::WindowEvent { ref event, .. } => match event {
                         WindowEvent::Resized(logical_size) => {
                             let dpi_factor = windowed_context.window().hidpi_factor();
-                            windowed_context.resize(logical_size.to_physical(dpi_factor));
-
-                            // TODO update size for gl
-                            // gl::Viewport(0, 0, width, height)
+                            let size = logical_size.to_physical(dpi_factor);
+                            windowed_context.resize(size);
+                            let w = size.width as i32;
+                            let h = size.height as i32;
+                            unsafe {
+                                gl::Viewport(0, 0, w, h);
+                            }
                         }
                         WindowEvent::RedrawRequested => {
                             for du in data_update_receiver.try_iter() {
-                                drawing_instance.handle_data_update(du);
+                                du.apply(&mut drawing_instance);
                             }
 
                             drawing_instance.draw();
@@ -139,8 +146,13 @@ impl Instance {
             LoadedMeshTicket::new()
         );
         let lmt = self.loaded_mesh_tickets.last().unwrap().clone();
+        let du = MeshCreate {
+            ticket: lmt.clone(),
+            mesh: mesh.clone(),
+            shader_program_ticket: shader_program_ticket.clone(),
+        };
         self.data_update_channel.send(
-            DataUpdate::MeshCreate(lmt.clone(), mesh.clone(), shader_program_ticket.clone())
+            Box::new(du)
         ).expect("Error sending data update");
         lmt
     }
@@ -150,21 +162,33 @@ impl Instance {
             RenderedObjectTicket::new()
         );
         let rot = self.rendered_object_tickets.last().unwrap().clone();
+        let du = RenderedObjectCreate {
+            ticket: rot.clone(),
+            mesh_ticket: lmt.clone(),
+        };
         self.data_update_channel.send(
-            DataUpdate::RenderedObjectCreate(rot.clone(), lmt.clone())
+            Box::new(du)
         ).expect("Error sending data update");
         rot
     }
 
     pub fn set_position(&mut self, rot: &RenderedObjectTicket, position: Vector3<f32>) {
+        let du = PositionSet {
+            ticket: rot.clone(),
+            position: position,
+        };
         self.data_update_channel.send(
-            DataUpdate::PositionSet(rot.clone(), position)
+            Box::new(du)
         ).expect("Error sending data update");
     }
 
     pub fn set_matrix(&mut self, rot: &RenderedObjectTicket, matrix: Matrix4<f32>) {
+        let du = MatrixSet {
+            ticket: rot.clone(),
+            matrix: matrix,
+        };
         self.data_update_channel.send(
-            DataUpdate::MatrixSet(rot.clone(), matrix)
+            Box::new(du)
         ).expect("Error sending data update");
     }
 
@@ -202,8 +226,9 @@ impl Instance {
             void main() {
                 vec4 object_color = texture(albedo, tex_coord);
                 vec3 light_dir = normalize(vec3(0.5, -1.0, 0.5));
-                float ambient_light = 0.15;
-                float light_intensity = max(dot(normal, light_dir), 0.0) + ambient_light;
+                float ambient_light = 1.00;
+                // float light_intensity = max(dot(normal, light_dir), 0.0) + ambient_light;
+                float light_intensity = ambient_light;
                 color = object_color * light_intensity;
             }
         "#;
@@ -223,24 +248,40 @@ impl Instance {
         let sp_t = self.shader_program_tickets.last().unwrap().clone();
         let ret_sp_t = sp_t.clone();
 
+        let vs_du = VertexShaderCreate {
+            ticket: vert_t,
+            source: v_src,
+        };
+        let fs_du = FragmentShaderCreate {
+            ticket: frag_t,
+            source: f_src,
+        };
         self.data_update_channel.send(
-            DataUpdate::VertShaderCreate(vert_t, v_src)
+            Box::new(vs_du)
         ).expect("Error sending data update");
         self.data_update_channel.send(
-            DataUpdate::FragShaderCreate(frag_t, f_src)
+            Box::new(fs_du)
         ).expect("Error sending data update");
 
+        let sp_du = ShaderProgramCreate {
+            ticket: sp_t,
+            vert_shader_ticket: vert_t_2,
+            frag_shader_ticket: Some(frag_t_2),
+        };
         self.data_update_channel.send(
-            DataUpdate::ShaderProgramCreate(sp_t, vert_t_2, Some(frag_t_2))
+            Box::new(sp_du)
         ).expect("Error sending data update");
 
         ret_sp_t
     }
 
     pub fn set_camera_matrix(&mut self, cam_mat: Matrix4<f32>) {
+        let du = CameraMatrixSet {
+            matrix: cam_mat,
+        };
         self.data_update_channel.send(
-            DataUpdate::CameraSet(cam_mat)
-        ).expect("Error sending data update");;
+            Box::new(du)
+        ).expect("Error sending data update");
     }
 
     pub fn bind_texture(&mut self, texture: &DynamicImage) -> TextureTicket {
@@ -248,10 +289,24 @@ impl Instance {
             TextureTicket::new()
         );
         let tt = self.texture_tickets.last().unwrap().clone();
+        let du = TextureCreate {
+            ticket: tt.clone(),
+            image: texture.clone(),
+        };
         self.data_update_channel.send(
-            DataUpdate::TextureCreate(tt.clone(), texture.clone())
+            Box::new(du)
         ).expect("Error sending data update");
         tt
+    }
+
+    pub fn set_texture(&mut self, rendered_object: &RenderedObjectTicket, texture: &TextureTicket) {
+        let du = TextureSet {
+            ticket: rendered_object.clone(),
+            texture_ticket: texture.clone(),
+        };
+        self.data_update_channel.send(
+            Box::new(du)
+        ).expect("Error sending data update");
     }
 
     pub fn is_closed(&self) -> bool {

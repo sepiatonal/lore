@@ -8,5 +8,6 @@ edition = "2018"
 
 [dependencies]
 lore_mesh = { path = "../lore_mesh"}
-rand = "0.7.0"
+rand = "0.7.2"
 image = "0.22.0"
+cgmath = "0.17.0"

@@ -20,11 +20,11 @@ pub fn white_texture() -> DynamicImage {
 
 pub fn default_texture() -> DynamicImage {
     let black = Rgb([0, 0, 0]);
-    let magenta = Rgb([0, 0, 255]);
+    let magenta = Rgb([255, 0, 255]);
     let mut img_buf = ImageBuffer::from_pixel(8, 8, black);
     for x in 0..8 {
         for y in 0..8 {
-            if x % 2 == 0 || y % 2 == 0 {
+            if y % 2 == x % 2 {
                 img_buf.put_pixel(x, y, magenta);
             }
         }
