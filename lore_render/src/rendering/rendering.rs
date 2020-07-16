@@ -307,24 +307,27 @@ impl DrawingInstance {
 
                 gl::UseProgram(shader_program_gl_id);
 
+                let view_string = CString::new("view").expect("CString::new failed");
                 gl::UniformMatrix4fv(
-                    gl::GetUniformLocation(shader_program_gl_id, CString::new("view").expect("CString::new failed").as_ptr()),
+                    gl::GetUniformLocation(shader_program_gl_id, view_string.as_ptr()),
                     1,
                     gl::FALSE,
                     self.camera.as_ptr(),
                 );
 
                 // TODO proper projection configuration
+                let proj_string = CString::new("projection").expect("CString::new failed");
                 let proj_mat = cgmath::perspective(Deg(45.0), 640.0 / 480.0, 0.1, 100.0);
                 gl::UniformMatrix4fv(
-                    gl::GetUniformLocation(shader_program_gl_id, CString::new("projection").expect("CString::new failed").as_ptr()),
+                    gl::GetUniformLocation(shader_program_gl_id, proj_string.as_ptr()),
                     1,
                     gl::FALSE,
                     proj_mat.as_ptr(),
                 );
 
+                let model_string = CString::new("model").expect("CString::new failed");
                 gl::UniformMatrix4fv(
-                    gl::GetUniformLocation(shader_program_gl_id, CString::new("model").expect("CString::new failed").as_ptr()),
+                    gl::GetUniformLocation(shader_program_gl_id, model_string.as_ptr()),
                     1,
                     gl::FALSE,
                     ro.matrix.as_ptr(),

@@ -5,5 +5,7 @@ authors = ["soerxpso <soerxpso@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-lore_render = { path = "../lore_render"}
+lore_render = { path = "../lore_render" }
+lore_mesh = { path = "../lore_mesh" }
+second_day = { path = "../second_day" }
 cgmath = "0.17.0"

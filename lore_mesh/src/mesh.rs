@@ -15,6 +15,14 @@ pub struct Mesh {
     pub indices: Vec<u32>,
 }
 
+struct MeshSkeleton {
+
+}
+
+impl MeshSkeleton {
+    
+}
+
 impl Mesh {
     pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>) -> Mesh {
         Mesh {

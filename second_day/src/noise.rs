@@ -120,7 +120,14 @@ impl PerlinNoise2DGenerator {
                 // (a + 1) / 2, rather than just a, because a is from -1 to 1
                 // (my implementation of perlin noise is incorrect and I'm leaving it)
                 let n_float = (self.at((x + u) as f32 * scale, (y + v) as f32 * scale) + 1.0) / 2.0;
-                let n_u8 = (n_float * 255.0).clamp(0.0, 255.0) as u8;
+                let n_float_clamped = if n_float < 0.0 {
+                    0.0
+                } else if n_float > 1.0 {
+                    1.0
+                } else {
+                    n_float
+                };
+                let n_u8 = (n_float_clamped * 255.0) as u8;
                 let color = Rgb([n_u8, n_u8, n_u8]);
                 img.put_pixel(u, v, color);
             }

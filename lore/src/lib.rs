@@ -1,17 +1,5 @@
-pub mod input {
-    pub struct InputManager {
-        keybinds: std::collections::HashMap<String, lore_render::VirtualKeyCode>,
-    }
+pub use lore_render;
+pub use second_day;
+pub use lore_mesh;
 
-    impl InputManager {
-        pub fn new() -> InputManager {
-            InputManager {
-                keybinds: std::collections::HashMap::new(),
-            }
-        }
-
-        pub fn set_key(&mut self, name: String, keycode: lore_render::VirtualKeyCode) {
-            self.keybinds.insert(name, keycode);
-        }
-    }
-}
+pub mod input;

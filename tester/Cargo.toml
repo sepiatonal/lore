@@ -5,6 +5,5 @@ authors = ["sour"]
 edition = "2018"
 
 [dependencies]
-lore_render = { path = "../lore_render"}
-second_day = { path = "../second_day"}
+lore = { path = "../lore" }
 cgmath = "0.17.0"

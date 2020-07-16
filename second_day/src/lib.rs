@@ -1,5 +1,3 @@
-#![feature(clamp)]
-
 pub mod mesh_gen;
 pub mod noise;
 
