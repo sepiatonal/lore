@@ -1,9 +1,9 @@
 [package]
 name = "tester"
 version = "0.1.0"
-authors = ["sour"]
-edition = "2018"
+authors = ["sepia"]
+edition = "2021"
 
 [dependencies]
-lore = { path = "../lore" }
-cgmath = "0.17.0"
+lore_render = { path = "../lore_render" }
+stillwind = { path = "../stillwind" }

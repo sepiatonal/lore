@@ -1,0 +1,19 @@
+[package]
+name = "lore_render"
+version = "0.1.0"
+authors = ["sepia"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+nalgebra = "0.19" # various math helpers
+cgmath = "0.18.0" # various math helpers
+slab = "0.4.2" # arraylist-like data storage
+pollster = "0.2" # simple blocking usage of async functions
+log = "0.4" # logging (of course)
+env_logger = "0.9" # debug logging for wgpu
+bytemuck = { version = "1.7.2", features = ["derive"] } # handling data manipulation (used to interact with wgpu)
+image = "0.23.0" # loading images
+wgpu = "0.12.0" # backend rendering library
+winit = "0.26.1" # window creation
+gltf = "1.0.0" # loading/parsing gltf mesh/scene file format

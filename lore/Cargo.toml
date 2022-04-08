@@ -2,10 +2,7 @@
 name = "lore"
 version = "0.1.0"
 authors = ["soerxpso <soerxpso@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 lore_render = { path = "../lore_render" }
-lore_mesh = { path = "../lore_mesh" }
-second_day = { path = "../second_day" }
-cgmath = "0.17.0"

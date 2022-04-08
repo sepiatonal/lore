@@ -1,0 +1,99 @@
+WHITESPACE = _{ SPACE_SEPARATOR | PARAGRAPH_SEPARATOR }
+newline = _{ NEWLINE | LINE_SEPARATOR }
+COMMENT = _{
+    ("/*" ~ (!"*/" ~ ANY)* ~ "*/")
+    | ("//" ~ (!(newline | EOI) ~ ANY)* ~ (newline | EOI))
+}
+
+number = @{ DECIMAL_NUMBER+ }
+decimal = @{ DECIMAL_NUMBER+ ~ "." ~ DECIMAL_NUMBER+ }
+string = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+constant = { decimal | number | string }
+
+identifier = @{ (LETTER | "_")+ }
+typed_identifier = { identifier ~ ":" ~ identifier }
+optionally_typed_identifier = { typed_identifier | identifier }
+path_identifier = ${ (identifier ~ ".")* ~ identifier }
+identifier_list = { (identifier ~ ",")* ~ identifier }
+optionally_typed_identifier_list = { (optionally_typed_identifier ~ ",")* ~ optionally_typed_identifier }
+
+atom = { path_identifier | constant }
+dyadic_operator = {
+    "+" | "-" | "*" | "/" | "==="
+    | "==" | "and" | "or" | "not"
+    | "is" | ">"
+}
+unary_operator = { "-" }
+dyadic_expression = { atom ~ dyadic_operator ~ atom }
+unary_expression = { unary_operator ~ atom }
+expression = {
+    unary_expression
+    | dyadic_expression
+    | function_call
+    | atom
+}
+
+arguments_list = { ("(" ~ (expression ~ ",")* ~ expression ~ ")") | "(" ~ ")" }
+function_call = { path_identifier ~ arguments_list }
+
+let_stmt = {
+    "let " ~
+    identifier ~
+    "=" ~
+    expression
+}
+set_stmt = {
+    path_identifier ~
+    "=" ~
+    expression
+}
+event_raise = {
+    identifier ~
+    "!" ~
+    arguments_list?
+}
+if_stmt = {
+    "if" ~
+    "(" ~ expression ~ ")" ~
+    block ~
+    (
+        "else if" ~
+        "(" ~ expression ~ ")" ~
+        block
+    )* ~
+    (
+        "else" ~
+        block
+    )?
+}
+
+listener_stmt = {
+    identifier ~
+    "?" ~
+    block
+}
+event_stmt = {
+    "event" ~
+    identifier ~
+    "(" ~ optionally_typed_identifier_list? ~ ")" ~
+    block
+}
+behavior_stmt = {
+    "behavior" ~
+    identifier ~
+    block
+}
+statement = {
+    let_stmt
+    | event_stmt
+    | listener_stmt
+    | behavior_stmt
+    | set_stmt
+    | event_raise
+    | if_stmt
+    | function_call
+    | expression
+}
+block = { newline* ~ "{" ~ newline* ~ (statement ~ newline*)* ~ "}" }
+
+program = _{ SOI ~ newline* ~ (statement ~ newline*)* ~ EOI }

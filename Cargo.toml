@@ -1,2 +1,3 @@
 [workspace]
-members = ["tester", "lore_render", "lore_mesh", "second_day", "lore"]
+members = ["tester", "lore_render", "lore", "stillwind"]
+resolver = "2"

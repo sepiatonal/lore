@@ -1,0 +1,10 @@
+[package]
+name = "stillwind"
+version = "0.1.0"
+authors = ["sepia"]
+edition = "2021"
+resolver = "2"
+
+[dependencies]
+pest = "2.1.0"
+pest_derive = "2.1.0"
