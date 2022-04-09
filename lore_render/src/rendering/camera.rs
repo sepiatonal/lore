@@ -12,9 +12,9 @@ use cgmath;
 use wgpu::util::DeviceExt;
 
 pub(in crate::rendering) struct Camera {
-    pos: cgmath::Point3<f32>, // camera position
-    target: cgmath::Point3<f32>, // point the camera looks at
-    up: cgmath::Vector3<f32>, // "up" vector for deciding camera roll
+    pub pos: cgmath::Point3<f32>, // camera position
+    pub target: cgmath::Point3<f32>, // point the camera looks at
+    pub up: cgmath::Vector3<f32>, // "up" vector for deciding camera roll
     aspect: f32,
     fovy: f32, // degrees
     znear: f32,
@@ -22,7 +22,7 @@ pub(in crate::rendering) struct Camera {
 }
 
 pub(in crate::rendering) struct RenderableCamera {
-    camera: Camera,
+    pub camera: Camera,
     uniform: CameraUniform,
     #[allow(dead_code)] // buffer must be stored since bind_group references it
     // TODO make sure this actually has to be stored
@@ -63,7 +63,7 @@ impl RenderableCamera {
         };
         let buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
+                label: Some("camera_buffer"),
                 contents: bytemuck::cast_slice(&[uniform]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }
@@ -103,8 +103,10 @@ impl RenderableCamera {
         }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, queue: &mut wgpu::Queue) {
         self.uniform.matrix = self.camera.matrix().into();
+        // TODO this is not maximum efficiency. look into map_write_async
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
     }
 }
 

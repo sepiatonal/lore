@@ -242,6 +242,18 @@ impl RenderingInstance {
         return instance_obj;
     }
 
+    pub fn set_camera_transform(&mut self, new_position: Option<Point3<f32>>, new_target: Option<Point3<f32>>, new_up: Option<Vector3<f32>>) {
+        if let Some(pos) = new_position {
+            self.camera.camera.pos = pos;
+        }
+        if let Some(target) = new_target {
+            self.camera.camera.target = target;
+        }
+        if let Some(up) = new_up {
+            self.camera.camera.up = up;
+        }
+    }
+
     pub fn create_texture(&mut self, img: image::DynamicImage) -> usize {
         let imgbuf = img.to_rgba();
         let (width, height) = img.dimensions();
@@ -315,7 +327,7 @@ impl RenderingInstance {
     pub fn delete_texture() {}
 
     pub(crate) fn update(&mut self) {
-        self.camera.update();
+        self.camera.update(&mut self.queue);
         for (_, mesh) in self.loaded_meshes.iter_mut() {
             mesh.update_instance_buffer(&mut self.device);
         }
