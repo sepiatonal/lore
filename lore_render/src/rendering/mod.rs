@@ -12,6 +12,7 @@ use pollster::block_on;
 pub enum InputEvent<'a> {
     Keyboard(&'a KeyboardInput),
     Mouse(&'a ElementState, &'a MouseButton),
+    MouseLocation(f64, f64),
 }
 
 pub fn run<T: 'static>(
@@ -23,7 +24,7 @@ pub fn run<T: 'static>(
     env_logger::init();
     // Create window that will be rendered to
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new().with_inner_size(winit::dpi::PhysicalSize::new(640, 480)).build(&event_loop).unwrap();
     // This instance will be given to the event_loop, will not be kept
     let mut rendering_instance = block_on(RenderingInstance::new(&window));
 
@@ -57,6 +58,12 @@ pub fn run<T: 'static>(
                         ..
                     } => {
                         input(&mut rendering_instance, &mut state, InputEvent::Mouse(button_state, button));
+                    },
+                    WindowEvent::CursorMoved {
+                        position,
+                        ..
+                    } => {
+                        input(&mut rendering_instance, &mut state, InputEvent::MouseLocation(position.x, position.y));
                     }
                     _ => {}
                 }

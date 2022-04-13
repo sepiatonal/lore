@@ -6,23 +6,21 @@ use gltf;
 // https://github.com/KhronosGroup/glTF/blob/main/specification/2.0/figures/gltfOverview-2.0.0b.png
 // ^ infographic on the structure of a glTF file
 
-pub fn load_gltf_mesh(path: &str) -> Vec<Mesh> {
-    let (document, buffers, images) = match gltf::import(path) {
+// returns:
+// Vec of meshes and the index (into returned textures list) of the texture that goes to that mesh
+// Vec of textures
+// Vec of object instances and the index (into returned meshes list) of the mesh that the instance is of
+pub fn load_gltf(path: &str) -> (Vec<(Mesh, Option<usize>)>, Vec<image::DynamicImage>, Vec<(crate::ObjectInstance, usize)>) {
+    let (document, buffers, gltf_images) = match gltf::import(path) {
         Err(_) => {
             println!("Failed to load path {}", path);
-            return Vec::new();
+            return (Vec::new(), Vec::new(), Vec::new());
         },
         Ok(imported) => imported,
     };
-    let mut gltf_meshes: Vec<gltf::Mesh> = Vec::new();
-    for scene in document.scenes() {
-        for node in scene.nodes() {
-            gltf_meshes.append(&mut meshes_from_node(node));
-        }
-    }
 
-    let mut meshes = Vec::<Mesh>::new();
-    for gltf_mesh in gltf_meshes {
+    let mut meshes = Vec::new();
+    for gltf_mesh in document.meshes() {
         for prim in gltf_mesh.primitives() {
             let mut vertices = Vec::<Vertex>::new();
             let mut indices = Vec::<u32>::new();
@@ -52,25 +50,55 @@ pub fn load_gltf_mesh(path: &str) -> Vec<Mesh> {
                     indices.push(ind);
                 }
             }
-            meshes.push(Mesh::new(vertices, indices));
+            let texture_mayb = prim.material().pbr_metallic_roughness().base_color_texture();
+            let texture_id = match texture_mayb {
+                Some(texture) => Some(texture.texture().index()),
+                None => None,
+            };
+
+            meshes.push((Mesh::new(vertices, indices), texture_id));
         }
     }
 
-    meshes
+    let mut images: Vec<image::DynamicImage> = Vec::new();
+    for gltf_image in gltf_images {
+        if gltf_image.format != gltf::image::Format::R8G8B8A8 {
+            panic!("i don't like the image format. {:?}", gltf_image.format);
+        };
+        let img_mayb = image::ImageBuffer::from_raw(gltf_image.width, gltf_image.height, gltf_image.pixels);
+        if let Some(img) = img_mayb {
+            images.push(image::DynamicImage::ImageRgba8(img));
+        }
+    }
+
+    let mut instances = Vec::new();
+    for scene in document.scenes() {
+        for node in scene.nodes() {
+            instances.append(&mut objects_from_node(node));
+        }
+    }
+
+    (meshes, images, instances)
 }
 
-fn meshes_from_node(node: gltf::Node) -> Vec<gltf::Mesh> {
-    let mut meshes: Vec<gltf::Mesh> = Vec::new();
+fn objects_from_node(node: gltf::Node) -> Vec<(crate::ObjectInstance, usize)> {
+    let mut instances = Vec::new();
     if node.children().count() != 0 {
         for child in node.children() {
-            meshes.append(&mut meshes_from_node(child));
+            instances.append(&mut objects_from_node(child));
         }
     } else {
-        match node.mesh() {
-            Some(mesh) => meshes.push(mesh),
-            None => {},
+        if let gltf::scene::Transform::Decomposed{ translation, rotation, scale, } = node.transform() {
+            if let Some(gltf_mesh) = node.mesh() {
+                let instance = crate::ObjectInstance {
+                    position: translation.into(),
+                    rotation: rotation.into(),
+                };
+
+                instances.push((instance, gltf_mesh.index()));
+            }
         }
     }
 
-    meshes
+    instances
 }

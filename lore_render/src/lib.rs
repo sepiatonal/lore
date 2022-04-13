@@ -1,6 +1,6 @@
 mod rendering;
 mod mesh;
-mod asset_loading;
+pub mod asset_loading;
 
 pub use rendering::{
     engine::{

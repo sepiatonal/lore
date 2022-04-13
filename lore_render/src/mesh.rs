@@ -1,4 +1,3 @@
-use crate::asset_loading::meshes::load_gltf_mesh;
 use cgmath::{Vector3, Matrix4, Point3};
 use cgmath::prelude::*;
 use bytemuck::{
@@ -25,10 +24,6 @@ impl Mesh {
             vertices,
             indices,
         }
-    }
-
-    pub fn from_gltf(path: &str) -> Mesh {
-        load_gltf_mesh(path).remove(0)
     }
 
     pub fn change_coord_system(&mut self, old_up: Vector3::<f32>, new_up: Vector3::<f32>) {

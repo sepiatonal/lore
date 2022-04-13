@@ -31,8 +31,10 @@ pub struct RenderingInstance {
     queue: Queue,
     config: SurfaceConfiguration,
     size: PhysicalSize<u32>,
+
     render_pipeline_layout: PipelineLayout,
     texture_bind_group_layout: BindGroupLayout,
+
     render_pipelines: Slab<RenderPipeline>,
     loaded_meshes: Slab<LoadedMesh>,
     textures: Slab<Texture>,
@@ -156,7 +158,7 @@ impl RenderingInstance {
                 entry_point: "fs_main",
                 targets: &[ColorTargetState {
                     format: self.config.format,
-                    blend: Some(BlendState::REPLACE),
+                    blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 }]
             }),
@@ -189,6 +191,10 @@ impl RenderingInstance {
 
     pub fn create_default_render_pipeline(&mut self) -> usize {
         self.create_render_pipeline(include_str!("../../shaders/default_shader.wgsl"))
+    } // TODO this function belongs elsewhere, somewhere closer to the API level instead of backend
+
+    pub fn create_default_gui_render_pipeline(&mut self) -> usize {
+        self.create_render_pipeline(include_str!("../../shaders/gui_shader.wgsl"))
     } // TODO this function belongs elsewhere, somewhere closer to the API level instead of backend
 
     pub fn bind_mesh(&mut self, mesh: &Mesh, render_pipeline: usize, texture_id: Option<usize>) -> usize {
