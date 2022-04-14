@@ -263,6 +263,11 @@ impl RenderingInstance {
         fun(&mut instance_obj);
     }
 
+    pub fn get_instance_mut(&mut self, instance_id: (usize, usize)) -> &mut ObjectInstance {
+        let (mesh, instance) = instance_id;
+        self.loaded_meshes[mesh].instances.get_mut(instance).unwrap()
+    }
+
     pub fn read_instance(&mut self, instance_id: (usize, usize)) -> &ObjectInstance {
         let (mesh, instance) = instance_id;
         let instance_obj = self.loaded_meshes[mesh].instances.get(instance).unwrap();
