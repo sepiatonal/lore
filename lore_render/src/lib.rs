@@ -6,6 +6,7 @@ pub use rendering::{
     engine::{
         RenderingInstance,
         ObjectInstance,
+        TextInstance,
     },
     run,
     InputEvent,

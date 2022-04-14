@@ -17,3 +17,5 @@ image = "0.23.0" # loading images
 wgpu = "0.12.0" # backend rendering library
 winit = "0.26.1" # window creation
 gltf = "1.0.0" # loading/parsing gltf mesh/scene file format
+wgpu_glyph = "0.16.0" # font rendering
+futures = "0.3" # todo i'd love to remove this, it's just needed by wgpu_glyph but i bet there's a workaround

@@ -16,21 +16,29 @@ use slab::Slab;
 use wgpu::{
     *,
     util::{
-        BufferInitDescriptor, DeviceExt,
+        BufferInitDescriptor, DeviceExt, StagingBelt,
     },
 };
 use winit::{
     window::Window,
     dpi::PhysicalSize,
 };
+use wgpu_glyph::GlyphBrush;
 use image::GenericImageView;
+use std::io::Read;
+use futures::task::SpawnExt;
 
 pub struct RenderingInstance {
+    // TODO oh god, please split this into multiple files you idiot
     surface: Surface,
     device: Device,
     queue: Queue,
     config: SurfaceConfiguration,
     size: PhysicalSize<u32>,
+
+    text_staging_belt: StagingBelt,
+    local_pool: futures::executor::LocalPool,
+    local_spawner: futures::executor::LocalSpawner,
 
     render_pipeline_layout: PipelineLayout,
     texture_bind_group_layout: BindGroupLayout,
@@ -38,6 +46,8 @@ pub struct RenderingInstance {
     render_pipelines: Slab<RenderPipeline>,
     loaded_meshes: Slab<LoadedMesh>,
     textures: Slab<Texture>,
+    glyph_brushes: Slab<GlyphBrush<()>>,
+    text_instances: Slab<TextInstance>,
     camera: RenderableCamera,
 }
 
@@ -106,17 +116,28 @@ impl RenderingInstance {
             push_constant_ranges: &[],
         });
 
+        let staging_belt = wgpu::util::StagingBelt::new(1024);
+        let local_pool = futures::executor::LocalPool::new();
+        let local_spawner = local_pool.spawner();
+
         let mut ret = Self {
             surface,
             device,
             queue,
             config,
             size,
+
+            text_staging_belt: staging_belt,
+            local_pool,
+            local_spawner,
+
             render_pipeline_layout,
             texture_bind_group_layout,
             render_pipelines: Slab::new(),
             loaded_meshes: Slab::new(),
             textures: Slab::new(),
+            glyph_brushes: Slab::new(),
+            text_instances: Slab::new(),
             camera,
         };
 
@@ -323,6 +344,28 @@ impl RenderingInstance {
         self.textures.insert(Texture { bind_group })
     }
 
+    pub fn create_glyph_brush(&mut self, font_path: &str) -> usize {
+        let file = std::fs::File::open(font_path).unwrap();
+        let mut file_reader = std::io::BufReader::new(file);
+        let mut file_buffer = Vec::new();
+        file_reader.read_to_end(&mut file_buffer).unwrap();
+        let font = wgpu_glyph::ab_glyph::FontArc::try_from_vec(file_buffer).unwrap();
+        let brush = wgpu_glyph::GlyphBrushBuilder::using_font(font).build(&mut self.device, self.config.format);
+        self.glyph_brushes.insert(brush)
+    }
+
+    pub fn create_text_box(&mut self, text_instance: TextInstance) -> usize {
+        self.text_instances.insert(text_instance)
+    }
+
+    pub fn delete_text_box(&mut self, text_instance: usize) {
+        self.text_instances.remove(text_instance);
+    }
+
+    pub fn get_textbox_mut(&mut self, text_instance: usize) -> &mut TextInstance {
+        self.text_instances.get_mut(text_instance).unwrap()
+    }
+
     // TODO implement delete_shader_program
     pub fn delete_shader_program() {}
 
@@ -339,7 +382,8 @@ impl RenderingInstance {
         }
     }
 
-    pub(crate) fn draw(&self) -> Result<(), wgpu::SurfaceError> {
+    // TODO this function cannot take mut self, it must be &self
+    pub(crate) fn draw(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -382,8 +426,36 @@ impl RenderingInstance {
                 render_pass.draw_indexed(0..m.num_indices, 0, 0..(m.instances.len() as u32));
             }
         }
+        for (_, txt) in self.text_instances.iter() {
+            let brush = self.glyph_brushes.get_mut(txt.brush).unwrap();
+            brush.queue_custom_layout(
+                wgpu_glyph::Section {
+                    screen_position: txt.position,
+                    bounds: txt.dimensions,
+                    text: vec!(wgpu_glyph::Text::new(&txt.text).with_color(txt.color).with_scale(txt.scale)),
+                    ..wgpu_glyph::Section::default()
+                },
+                &wgpu_glyph::Layout::default_wrap()
+                    .h_align(wgpu_glyph::HorizontalAlign::Center)
+                    .v_align(wgpu_glyph::VerticalAlign::Top),
+            );
+            brush.draw_queued(
+                &self.device,
+                &mut self.text_staging_belt,
+                &mut encoder,
+                &view,
+                640,
+                480,
+            ).unwrap();
+        }
+        
+        self.text_staging_belt.finish();
+
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        self.local_spawner.spawn(self.text_staging_belt.recall()).unwrap();
+        self.local_pool.run_until_stalled();
 
         Ok(())
     }
@@ -487,6 +559,15 @@ impl RawObjectInstance {
             ],
         }
     }
+}
+
+pub struct TextInstance {
+    pub position: (f32, f32),
+    pub dimensions: (f32, f32),
+    pub color: [f32; 4],
+    pub scale: f32,
+    pub text: String,
+    pub brush: usize,
 }
 
 impl Vertex {
